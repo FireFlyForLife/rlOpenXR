@@ -24,6 +24,30 @@
 template<typename T>
 using Two = std::array<T, 2>;
 
+template<typename T>
+class RaylibAllocator
+{
+public:
+	using value_type = T;
+
+	static constexpr bool is_always_equal = true;
+
+	static_assert(alignof(T) <= alignof(std::max_align_t), "Malloc uses max_alignment, so we are constrained by that.");
+
+	bool operator==(const RaylibAllocator<T>& /*other*/) const { return true; }
+	bool operator!=(const RaylibAllocator<T>& other) const { return !(*this == other); }
+
+	T* allocate(std::size_t size)
+	{
+		return reinterpret_cast<T*>(MemAlloc(size * sizeof(T)));
+	}
+
+	void deallocate(T* pointer, std::size_t /*size*/) noexcept
+	{
+		MemFree(pointer);
+	}
+};
+
 struct RLExtraHandData
 {
 	// Data
@@ -54,9 +78,6 @@ struct RLExtraHandData
 // ============================================================================
 
 constexpr int c_view_count = 2;
-constexpr int c_hand_count = 2;
-constexpr int c_hand_left_index = 0;
-constexpr int c_hand_right_index = 1;
 
 // These should probably be configurable
 constexpr XrViewConfigurationType c_view_type = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
@@ -80,14 +101,10 @@ struct RLOpenXRDataExtensions
 	bool depth_enabled = false;
 };
 
-struct RLOpenXRData
+struct RLOpenXRAllData
 {
 	// Data
-	XrInstance instance = XR_NULL_HANDLE; // the instance handle can be thought of as the basic connection to the OpenXR runtime
-	XrSystemId system_id = XR_NULL_SYSTEM_ID; // the system represents an (opaque) set of XR devices in use, managed by the runtime
-	XrSession session = XR_NULL_HANDLE; // the session deals with the renderloop submitting frames to the runtime
-
-	XrSessionState session_state = XR_SESSION_STATE_UNKNOWN;
+	RLOpenXRData data;
 
 	RLOpenXRDataExtensions extensions;
 
@@ -95,16 +112,6 @@ struct RLOpenXRData
 	XrGraphicsBindingOpenGLWin32KHR graphics_binding_gl;
 
 	XrFrameState frame_state{ XR_TYPE_FRAME_STATE };
-
-	XrSpace play_space = XR_NULL_HANDLE;
-	XrSpace view_space = XR_NULL_HANDLE;
-
-	XrActionSet internal_actionset = XR_NULL_HANDLE;
-	XrAction hand_pose_action = XR_NULL_HANDLE;
-	Two<XrPath> hand_paths = { 0, 0 };
-	Two<XrSpace> hand_spaces = { XR_NULL_HANDLE, XR_NULL_HANDLE };
-	Two<RLHand> hands{};
-	Two<RLExtraHandData> hands_internal{};
 
 	bool session_running = false; // to avoid beginning an already running session
 	bool run_framecycle = false;  // for some session states skip the frame cycle
@@ -127,17 +134,17 @@ struct RLOpenXRData
 	unsigned int active_fbo = 0;
 
 	// Construction & Deconstruction
-	RLOpenXRData() = default;
-	~RLOpenXRData() = default;
+	RLOpenXRAllData() = default;
+	~RLOpenXRAllData() = default;
 
 	// Not copyable & not moveable
-	RLOpenXRData(const RLOpenXRData&) = delete;
-	RLOpenXRData(RLOpenXRData&&) = delete;
-	RLOpenXRData& operator=(const RLOpenXRData&) = delete;
-	RLOpenXRData& operator=(RLOpenXRData&&) = delete;
+	RLOpenXRAllData(const RLOpenXRAllData&) = delete;
+	RLOpenXRAllData(RLOpenXRAllData&&) = delete;
+	RLOpenXRAllData& operator=(const RLOpenXRAllData&) = delete;
+	RLOpenXRAllData& operator=(RLOpenXRAllData&&) = delete;
 };
 
-static std::unique_ptr<RLOpenXRData> s_xr;
+static std::unique_ptr<RLOpenXRAllData> s_xr;
 
 
 // Helpers
@@ -149,9 +156,9 @@ static bool xr_check(XrResult result, const char* format, ...)
 		return true;
 
 	char resultString[XR_MAX_RESULT_STRING_SIZE];
-	if (s_xr != nullptr && s_xr->instance != XR_NULL_HANDLE)
+	if (s_xr != nullptr && s_xr->data.instance != XR_NULL_HANDLE)
 	{
-		xrResultToString(s_xr->instance, result, resultString);
+		xrResultToString(s_xr->data.instance, result, resultString);
 	}
 	else
 	{
@@ -290,7 +297,7 @@ extern "C" {
 bool rlOpenXRSetup()
 {
 	assert(s_xr == nullptr);
-	s_xr = std::make_unique<RLOpenXRData>();
+	s_xr = std::make_unique<RLOpenXRAllData>();
 
 	XrResult result = XR_SUCCESS;
 
@@ -364,21 +371,21 @@ bool rlOpenXRSetup()
 	strcpy_s(instance_create_info.applicationInfo.applicationName, "rlOpenXR Application"); // TODO: Do we want this to be exposed? Does it have any purpose?
 	strcpy_s(instance_create_info.applicationInfo.engineName, "Raylib (rlOpenXR)");
 
-	result = xrCreateInstance(&instance_create_info, &s_xr->instance);
+	result = xrCreateInstance(&instance_create_info, &s_xr->data.instance);
 	if (!xr_check(result, "Failed to create XR instance."))
 		return false;
 
-	result = xrGetInstanceProcAddr(s_xr->instance, "xrGetOpenGLGraphicsRequirementsKHR",
+	result = xrGetInstanceProcAddr(s_xr->data.instance, "xrGetOpenGLGraphicsRequirementsKHR",
 			(PFN_xrVoidFunction*)&s_xr->extensions.xrGetOpenGLGraphicsRequirementsKHR);
 	if (!xr_check(result, "Failed to get OpenGL graphics requirements function!"))
 		return false;
 
-	result = xrGetInstanceProcAddr(s_xr->instance, "xrConvertWin32PerformanceCounterToTimeKHR",
+	result = xrGetInstanceProcAddr(s_xr->data.instance, "xrConvertWin32PerformanceCounterToTimeKHR",
 		(PFN_xrVoidFunction*)&s_xr->extensions.xrConvertWin32PerformanceCounterToTimeKHR);
 	if (!xr_check(result, "Failed to get xrConvertWin32PerformanceCounterToTimeKHR function!"))
 		return false;
 
-	result = xrGetInstanceProcAddr(s_xr->instance, "xrCreateDebugUtilsMessengerEXT",
+	result = xrGetInstanceProcAddr(s_xr->data.instance, "xrCreateDebugUtilsMessengerEXT",
 			(PFN_xrVoidFunction*)&s_xr->extensions.xrCreateDebugUtilsMessengerEXT);
 	if (!xr_check(result, "Failed to get xrCreateDebugUtilsMessengerEXT function!"))
 		return false;
@@ -394,22 +401,22 @@ bool rlOpenXRSetup()
 
 	// TODO: Only enable on RLGL_ENABLE_OPENGL_DEBUG_CONTEXT
 	// TODO: This leaks the handle, should be destroyed too
-	result = s_xr->extensions.xrCreateDebugUtilsMessengerEXT(s_xr->instance, &debug_message_create_info, &s_xr->extensions.debug_messenger_handle);
+	result = s_xr->extensions.xrCreateDebugUtilsMessengerEXT(s_xr->data.instance, &debug_message_create_info, &s_xr->extensions.debug_messenger_handle);
 	if (!xr_check(result, "Failed create debug messenger!"))
 		return false;
 
 	// Optionally get runtime name and version
-	print_instance_properties(s_xr->instance);
+	print_instance_properties(s_xr->data.instance);
 
 	// --- Get XrSystemId
 	XrSystemGetInfo system_get_info = {
 		.type = XR_TYPE_SYSTEM_GET_INFO, .next = NULL, .formFactor = c_form_factor };
 
-	result = xrGetSystem(s_xr->instance, &system_get_info, &s_xr->system_id);
+	result = xrGetSystem(s_xr->data.instance, &system_get_info, &s_xr->data.system_id);
 	if (!xr_check(result, "Failed to get system for HMD form factor."))
 		return false;
 
-	printf("Successfully got XrSystem with id %llu for HMD form factor\n", s_xr->system_id);
+	printf("Successfully got XrSystem with id %llu for HMD form factor\n", s_xr->data.system_id);
 
 	{
 		XrSystemProperties system_props = {
@@ -417,7 +424,7 @@ bool rlOpenXRSetup()
 			.next = NULL,
 		};
 
-		result = xrGetSystemProperties(s_xr->instance, s_xr->system_id, &system_props);
+		result = xrGetSystemProperties(s_xr->data.instance, s_xr->data.system_id, &system_props);
 		if (!xr_check(result, "Failed to get System properties"))
 			return false;
 
@@ -425,13 +432,13 @@ bool rlOpenXRSetup()
 	}
 
 	uint32_t view_count;
-	result = xrEnumerateViewConfigurationViews(s_xr->instance, s_xr->system_id, c_view_type, 0, &view_count, NULL);
+	result = xrEnumerateViewConfigurationViews(s_xr->data.instance, s_xr->data.system_id, c_view_type, 0, &view_count, NULL);
 	if (!xr_check(result, "Failed to get view configuration view count!"))
 		return 1;
 
 	s_xr->viewconfig_views.resize(view_count, XrViewConfigurationView{ .type = XR_TYPE_VIEW_CONFIGURATION_VIEW , .next = nullptr });
 	
-	result = xrEnumerateViewConfigurationViews(s_xr->instance, s_xr->system_id, c_view_type, view_count,
+	result = xrEnumerateViewConfigurationViews(s_xr->data.instance, s_xr->data.system_id, c_view_type, view_count,
 		&view_count, &s_xr->viewconfig_views[0]);
 	if (!xr_check(result, "Failed to enumerate view configuration views!"))
 		return 1;
@@ -444,7 +451,7 @@ bool rlOpenXRSetup()
 												   .next = NULL };
 
 
-	result = s_xr->extensions.xrGetOpenGLGraphicsRequirementsKHR(s_xr->instance, s_xr->system_id, &opengl_reqs);
+	result = s_xr->extensions.xrGetOpenGLGraphicsRequirementsKHR(s_xr->data.instance, s_xr->data.system_id, &opengl_reqs);
 	if (!xr_check(result, "Failed to get OpenGL graphics requirements!"))
 		return false;
 
@@ -479,9 +486,9 @@ bool rlOpenXRSetup()
 	assert(graphics_binding_gl.hGLRC != NULL);
 
 	XrSessionCreateInfo session_create_info = {
-		.type = XR_TYPE_SESSION_CREATE_INFO, .next = &graphics_binding_gl, .systemId = s_xr->system_id };
+		.type = XR_TYPE_SESSION_CREATE_INFO, .next = &graphics_binding_gl, .systemId = s_xr->data.system_id };
 
-	result = xrCreateSession(s_xr->instance, &session_create_info, &s_xr->session);
+	result = xrCreateSession(s_xr->data.instance, &session_create_info, &s_xr->data.session);
 	if (!xr_check(result, "Failed to create session"))
 		return 1;
 
@@ -496,7 +503,7 @@ bool rlOpenXRSetup()
 														 .referenceSpaceType = c_play_space_type,
 														 .poseInReferenceSpace = identity_pose };
 
-	result = xrCreateReferenceSpace(s_xr->session, &play_space_create_info, &s_xr->play_space);
+	result = xrCreateReferenceSpace(s_xr->data.session, &play_space_create_info, &s_xr->data.play_space);
 	if (!xr_check(result, "Failed to create play space!"))
 		return false;
 
@@ -505,13 +512,13 @@ bool rlOpenXRSetup()
 													 .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW,
 													 .poseInReferenceSpace = identity_pose };
 
-	result = xrCreateReferenceSpace(s_xr->session, &view_space_create_info, &s_xr->view_space);
+	result = xrCreateReferenceSpace(s_xr->data.session, &view_space_create_info, &s_xr->data.view_space);
 	if (!xr_check(result, "Failed to create view space!"))
 		return false;
 
 	// --- Create Swapchains
 	uint32_t supported_gl_internal_format_count;
-	result = xrEnumerateSwapchainFormats(s_xr->session, 0, &supported_gl_internal_format_count, NULL);
+	result = xrEnumerateSwapchainFormats(s_xr->data.session, 0, &supported_gl_internal_format_count, NULL);
 	if (!xr_check(result, "Failed to get number of supported swapchain formats"))
 		return false;
 
@@ -519,7 +526,7 @@ bool rlOpenXRSetup()
 
 	std::vector<int64_t> supported_gl_internal_formats;
 	supported_gl_internal_formats.resize(supported_gl_internal_format_count);
-	result = xrEnumerateSwapchainFormats(s_xr->session, supported_gl_internal_format_count, &supported_gl_internal_format_count,
+	result = xrEnumerateSwapchainFormats(s_xr->data.session, supported_gl_internal_format_count, &supported_gl_internal_format_count,
 		&supported_gl_internal_formats[0]);
 	if (!xr_check(result, "Failed to enumerate swapchain formats"))
 		return false;
@@ -574,7 +581,7 @@ bool rlOpenXRSetup()
 			.mipCount = 1,
 		};
 
-		result = xrCreateSwapchain(s_xr->session, &swapchain_create_info, &s_xr->swapchain);
+		result = xrCreateSwapchain(s_xr->data.session, &swapchain_create_info, &s_xr->swapchain);
 		if (!xr_check(result, "Failed to create swapchain!"))
 			return 1;
 
@@ -621,7 +628,7 @@ bool rlOpenXRSetup()
 				.mipCount = 1,
 			};
 
-			result = xrCreateSwapchain(s_xr->session, &swapchain_create_info, &s_xr->depth_swapchain);
+			result = xrCreateSwapchain(s_xr->data.session, &swapchain_create_info, &s_xr->depth_swapchain);
 			if (!xr_check(result, "Failed to create swapchain!"))
 				return false;
 
@@ -685,110 +692,10 @@ bool rlOpenXRSetup()
 	}
 
 	s_xr->layer_projection.layerFlags = 0;
-	s_xr->layer_projection.space = s_xr->play_space;
+	s_xr->layer_projection.space = s_xr->data.play_space;
 	s_xr->layer_projection.viewCount = view_count;
 	s_xr->layer_projection.views = s_xr->projection_views.data();
 	s_xr->layers_pointers.push_back((XrCompositionLayerBaseHeader*)&s_xr->layer_projection);
-
-	result = xrStringToPath(s_xr->instance, "/user/hand/left", &s_xr->hand_paths[c_hand_left_index]);
-	if (!xr_check(result, "Could not convert Left hand string to path.")) { return false; }
-	result = xrStringToPath(s_xr->instance, "/user/hand/right", &s_xr->hand_paths[c_hand_right_index]);
-	if (!xr_check(result, "Could not convert Right hand string to path.")) { return false; }
-
-	XrActionSetCreateInfo internal_actionset_info = { .type = XR_TYPE_ACTION_SET_CREATE_INFO, .next = NULL, .priority = 0 };
-	strcpy(internal_actionset_info.actionSetName, "rlopenxr_actionset");
-	strcpy(internal_actionset_info.localizedActionSetName, "OpenXR Internal Actions");
-
-	result = xrCreateActionSet(s_xr->instance, &internal_actionset_info, &s_xr->internal_actionset);
-	if (!xr_check(result, "failed to create actionset"))
-		return false;
-
-	{
-		XrActionCreateInfo action_info = { .type = XR_TYPE_ACTION_CREATE_INFO,
-										  .next = NULL,
-										  .actionType = XR_ACTION_TYPE_POSE_INPUT,
-										  .countSubactionPaths = c_hand_count,
-										  .subactionPaths = s_xr->hand_paths.data() };
-		strcpy(action_info.actionName, "handpose");
-		strcpy(action_info.localizedActionName, "Hand Pose");
-
-		result = xrCreateAction(s_xr->internal_actionset, &action_info, &s_xr->hand_pose_action);
-		if (!xr_check(result, "failed to create hand pose action"))
-			return false;
-	}
-	// poses can't be queried directly, we need to create a space for each
-	for (int hand = 0; hand < c_hand_count; hand++) {
-		XrActionSpaceCreateInfo action_space_info = { .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
-													 .next = NULL,
-													 .action = s_xr->hand_pose_action,
-													 .subactionPath = s_xr->hand_paths[hand],
-													 .poseInActionSpace = identity_pose };
-
-		result = xrCreateActionSpace(s_xr->session, &action_space_info, &s_xr->hand_spaces[hand]);
-		if (!xr_check(result, "failed to create hand %d pose space", hand))
-			return false;
-	}
-
-	Two<XrPath> grip_pose_path;
-	xrStringToPath(s_xr->instance, "/user/hand/left/input/grip/pose", &grip_pose_path[c_hand_left_index]);
-	xrStringToPath(s_xr->instance, "/user/hand/right/input/grip/pose", &grip_pose_path[c_hand_right_index]);
-
-	{
-		XrPath interaction_profile_path;
-		result = xrStringToPath(s_xr->instance, "/interaction_profiles/khr/simple_controller",
-			&interaction_profile_path);
-		if (!xr_check(result, "failed to get interaction profile"))
-			return false;
-
-		const XrActionSuggestedBinding bindings[]{
-			{.action = s_xr->hand_pose_action, .binding = grip_pose_path[c_hand_left_index]},
-			{.action = s_xr->hand_pose_action, .binding = grip_pose_path[c_hand_right_index]},
-		};
-
-		const XrInteractionProfileSuggestedBinding suggested_bindings = {
-			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
-			.next = NULL,
-			.interactionProfile = interaction_profile_path,
-			.countSuggestedBindings = 2,
-			.suggestedBindings = bindings };
-
-		result = xrSuggestInteractionProfileBindings(s_xr->instance, &suggested_bindings);
-		if (!xr_check(result, "failed to suggest bindings"))
-			return false;
-	}
-
-	{
-		XrPath interaction_profile_path;
-		result = xrStringToPath(s_xr->instance, "/interaction_profiles/oculus/touch_controller",
-			&interaction_profile_path);
-		if (!xr_check(result, "failed to get interaction profile"))
-			return false;
-
-		const XrActionSuggestedBinding bindings[]{
-			{.action = s_xr->hand_pose_action, .binding = grip_pose_path[c_hand_left_index]},
-			{.action = s_xr->hand_pose_action, .binding = grip_pose_path[c_hand_right_index]},
-		};
-
-		const XrInteractionProfileSuggestedBinding suggested_bindings = {
-			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
-			.next = NULL,
-			.interactionProfile = interaction_profile_path,
-			.countSuggestedBindings = 2,
-			.suggestedBindings = bindings };
-
-		result = xrSuggestInteractionProfileBindings(s_xr->instance, &suggested_bindings);
-		if (!xr_check(result, "failed to suggest bindings"))
-			return false;
-	}
-
-	XrSessionActionSetsAttachInfo actionset_attach_info = {
-		.type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO,
-		.next = NULL,
-		.countActionSets = 1,
-		.actionSets = &s_xr->internal_actionset };
-	result = xrAttachSessionActionSets(s_xr->session, &actionset_attach_info);
-	if (!xr_check(result, "failed to attach action set"))
-		return false;
 
 	return true;
 }
@@ -804,7 +711,7 @@ void rlOpenXRShutdown()
 	rlUnloadFramebuffer(s_xr->fbo);
 	UnloadRenderTexture(s_xr->mock_hmd_rt);
 
-	XrResult result = xrDestroyInstance(s_xr->instance);
+	XrResult result = xrDestroyInstance(s_xr->data.instance);
 	if (XR_SUCCEEDED(result))
 	{
 		printf("%s", "Succesfully shutdown OpenXR.\n");
@@ -826,7 +733,7 @@ void rlOpenXRUpdate()
 	XrResult result;
 
 	XrEventDataBuffer runtime_event = { .type = XR_TYPE_EVENT_DATA_BUFFER, .next = NULL };
-	XrResult poll_result = xrPollEvent(s_xr->instance, &runtime_event);
+	XrResult poll_result = xrPollEvent(s_xr->data.instance, &runtime_event);
 	while (poll_result == XR_SUCCESS) {
 		switch (runtime_event.type) {
 		case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING: {
@@ -836,8 +743,8 @@ void rlOpenXRUpdate()
 		}
 		case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
 			XrEventDataSessionStateChanged* event = (XrEventDataSessionStateChanged*)&runtime_event;
-			printf("EVENT: session state changed from %d to %d\n", s_xr->session_state, event->state);
-			s_xr->session_state = event->state;
+			printf("EVENT: session state changed from %d to %d\n", s_xr->data.session_state, event->state);
+			s_xr->data.session_state = event->state;
 
 			/*
 			 * react to session state changes, see OpenXR spec 9.3 diagram. What we need to react to:
@@ -850,7 +757,7 @@ void rlOpenXRUpdate()
 			 * * IDLE -> don't run render loop, but keep polling for events
 			 * * SYNCHRONIZED, VISIBLE, FOCUSED -> run render loop
 			 */
-			switch (s_xr->session_state) {
+			switch (s_xr->data.session_state) {
 				// skip render loop, keep polling
 			case XR_SESSION_STATE_MAX_ENUM: // must be a bug
 			case XR_SESSION_STATE_IDLE:
@@ -877,7 +784,7 @@ void rlOpenXRUpdate()
 					XrSessionBeginInfo session_begin_info = { .type = XR_TYPE_SESSION_BEGIN_INFO,
 															 .next = NULL,
 															 .primaryViewConfigurationType = c_view_type };
-					result = xrBeginSession(s_xr->session, &session_begin_info);
+					result = xrBeginSession(s_xr->data.session, &session_begin_info);
 					if (!xr_check(result, "Failed to begin session!"))
 						return;
 					printf("Session started!\n");
@@ -894,7 +801,7 @@ void rlOpenXRUpdate()
 				// end session only if it is running, i.e. not when we already called xrEndSession but the
 				// runtime did not switch to the next state yet
 				if (s_xr->session_running) {
-					result = xrEndSession(s_xr->session);
+					result = xrEndSession(s_xr->data.session);
 					if (!xr_check(result, "Failed to end session!"))
 						return;
 					s_xr->session_running = false;
@@ -908,7 +815,7 @@ void rlOpenXRUpdate()
 										  // destroy session, skip render loop, exit render loop and quit
 			case XR_SESSION_STATE_LOSS_PENDING:
 			case XR_SESSION_STATE_EXITING:
-				result = xrDestroySession(s_xr->session);
+				result = xrDestroySession(s_xr->data.session);
 				if (!xr_check(result, "Failed to destroy session!"))
 					return;
 				s_xr->run_framecycle = false;
@@ -923,30 +830,13 @@ void rlOpenXRUpdate()
 				(XrEventDataInteractionProfileChanged*)&runtime_event;
 			(void)event;
 
-			XrInteractionProfileState state = { .type = XR_TYPE_INTERACTION_PROFILE_STATE };
-
-			for (int i = 0; i < c_hand_count; i++) {
-				XrResult res = xrGetCurrentInteractionProfile(s_xr->session, s_xr->hand_paths[i], &state);
-				if (!xr_check(res, "Failed to get interaction profile for %d", i))
-					continue;
-
-				XrPath prof = state.interactionProfile;
-
-				uint32_t strl;
-				char profile_str[XR_MAX_PATH_LENGTH];
-				res = xrPathToString(s_xr->instance, prof, XR_MAX_PATH_LENGTH, &strl, profile_str);
-				if (!xr_check(res, "Failed to get interaction profile path str for %d", i))
-					continue;
-
-				printf("Event: Interaction profile changed for %d: %s\n", i, profile_str);
-			}
 			break;
 		}
 		default: printf("Unhandled event (type %d)\n", runtime_event.type);
 		}
 
 		runtime_event.type = XR_TYPE_EVENT_DATA_BUFFER;
-		poll_result = xrPollEvent(s_xr->instance, &runtime_event);
+		poll_result = xrPollEvent(s_xr->data.instance, &runtime_event);
 	}
 	if (poll_result == XR_EVENT_UNAVAILABLE) {
 		// processed all events in the queue
@@ -955,17 +845,6 @@ void rlOpenXRUpdate()
 		// TODO: Actually print the poll_result as a string...
 		printf("Failed to poll events!\n");
 	}
-
-	const XrActiveActionSet active_actionsets[] = {
-			{.actionSet = s_xr->internal_actionset, .subactionPath = XR_NULL_PATH} };
-
-	XrActionsSyncInfo actions_sync_info = {
-			.type = XR_TYPE_ACTIONS_SYNC_INFO,
-			.countActiveActionSets = sizeof(active_actionsets) / sizeof(active_actionsets[0]),
-			.activeActionSets = active_actionsets,
-	};
-	result = xrSyncActions(s_xr->session, &actions_sync_info);
-	xr_check(result, "failed to sync actions!");
 }
 
 void rlOpenXRUpdateCamera(Camera3D* camera)
@@ -973,11 +852,10 @@ void rlOpenXRUpdateCamera(Camera3D* camera)
 	assert(s_xr && "rlOpenXR is not initialised yet, call rlOpenXRSetup()");
 	assert(camera != nullptr);
 
-	const XrTime time = std::max(s_xr->frame_state.predictedDisplayTime,
-		wrapped_XrTimeFromQueryPerformanceCounter(s_xr->instance, s_xr->extensions.xrConvertWin32PerformanceCounterToTimeKHR));
+	const XrTime time = rlOpenXRGetTime();
 
 	XrSpaceLocation view_location{ XR_TYPE_SPACE_LOCATION };
-	XrResult result = xrLocateSpace(s_xr->view_space, s_xr->play_space, time, &view_location);
+	XrResult result = xrLocateSpace(s_xr->data.view_space, s_xr->data.play_space, time, &view_location);
 	if (!xr_check(result, "Could not locate view location"))
 	{
 		return;
@@ -998,52 +876,6 @@ void rlOpenXRUpdateCamera(Camera3D* camera)
 	}
 }
 
-void rlOpenXRUpdateHands(Transform* left, Transform* right)
-{
-	assert(s_xr && "rlOpenXR is not initialised yet, call rlOpenXRSetup()");
-
-	const XrTime time = std::max(s_xr->frame_state.predictedDisplayTime,
-		wrapped_XrTimeFromQueryPerformanceCounter(s_xr->instance, s_xr->extensions.xrConvertWin32PerformanceCounterToTimeKHR));
-
-	std::array transforms{ left, right };
-
-	for (int hand_index = 0; hand_index < c_hand_count; ++hand_index)
-	{
-		XrActionStateGetInfo get_info = { .type = XR_TYPE_ACTION_STATE_GET_INFO,
-											.next = NULL,
-											.action = s_xr->hand_pose_action,
-											.subactionPath = s_xr->hand_paths[hand_index] };
-		
-		XrActionStatePose hand_pose_state{ XR_TYPE_ACTION_STATE_POSE };
-		XrResult result = xrGetActionStatePose(s_xr->session, &get_info, &hand_pose_state);
-		if (!xr_check(result, "failed to get hand %d action state pose!", hand_index)) 
-		{ 
-			continue; 
-		}
-		
-		if (hand_pose_state.isActive && transforms[hand_index] != nullptr)
-		{
-			XrSpaceLocation hand_location{ XR_TYPE_SPACE_LOCATION };
-			result = xrLocateSpace(s_xr->hand_spaces[hand_index], s_xr->play_space, time, &hand_location);
-			if (!xr_check(result, "Could not retrieve hand %d location", hand_index)) 
-			{ 
-				continue; 
-			}
-
-			auto& pose = hand_location.pose;
-
-			if (hand_location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)
-			{
-				transforms[hand_index]->translation = Vector3{ pose.position.x, pose.position.y, pose.position.z };
-			}
-			if (hand_location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)
-			{
-				transforms[hand_index]->rotation = Quaternion{ pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w };
-			}
-		}
-	}
-}
-
 // ----------------------------------------------------------------------------
 
 bool rlOpenXRBegin()
@@ -1056,7 +888,7 @@ bool rlOpenXRBegin()
 	}
 
 	XrFrameWaitInfo frame_wait_info = { .type = XR_TYPE_FRAME_WAIT_INFO, .next = NULL };
-	XrResult result = xrWaitFrame(s_xr->session, &frame_wait_info, &s_xr->frame_state);
+	XrResult result = xrWaitFrame(s_xr->data.session, &frame_wait_info, &s_xr->frame_state);
 	if (!xr_check(result, "xrWaitFrame() was not successful, skipping this frame"))
 	{
 		return false;
@@ -1066,12 +898,12 @@ bool rlOpenXRBegin()
 										 .next = NULL,
 										 .viewConfigurationType = c_view_type,
 										 .displayTime = s_xr->frame_state.predictedDisplayTime,
-										 .space = s_xr->play_space };
+										 .space = s_xr->data.play_space };
 
 	XrViewState view_state{ XR_TYPE_VIEW_STATE };
 
 	uint32_t output_view_count;
-	result = xrLocateViews(s_xr->session, &view_locate_info, &view_state, c_view_count, &output_view_count, s_xr->views.data());
+	result = xrLocateViews(s_xr->data.session, &view_locate_info, &view_state, c_view_count, &output_view_count, s_xr->views.data());
 	if (!xr_check(result, "Could not locate views"))
 		return false;
 
@@ -1084,12 +916,12 @@ bool rlOpenXRBegin()
 	}
 
 	XrSpaceLocation view_location{ XR_TYPE_SPACE_LOCATION };
-	result = xrLocateSpace(s_xr->view_space, s_xr->play_space, s_xr->frame_state.predictedDisplayTime, &view_location);
+	result = xrLocateSpace(s_xr->data.view_space, s_xr->data.play_space, s_xr->frame_state.predictedDisplayTime, &view_location);
 	if (!xr_check(result, "Could not locate view location"))
 		return false;
 
 	XrFrameBeginInfo frame_begin_info = { XR_TYPE_FRAME_BEGIN_INFO };
-	result = xrBeginFrame(s_xr->session, &frame_begin_info);
+	result = xrBeginFrame(s_xr->data.session, &frame_begin_info);
 	if (!xr_check(result, "failed to begin frame!"))
 		return false;
 
@@ -1243,7 +1075,7 @@ void rlOpenXREnd()
 									   .layerCount = (uint32_t)s_xr->layers_pointers.size(),
 									   .layers = s_xr->layers_pointers.data() };
 
-	XrResult result = xrEndFrame(s_xr->session, &frame_end_info);
+	XrResult result = xrEndFrame(s_xr->data.session, &frame_end_info);
 	if (!xr_check(result, "failed to end frame!"))
 	{
 		return;
@@ -1306,10 +1138,93 @@ void rlOpenXRBlitToWindow(RLOpenXREye eye, bool keep_aspect_ratio)
 	rlEnableFramebuffer(s_xr->active_fbo);
 }
 
-RLHand* rlOpenXRHand(RLHandEnum handedness)
+void rlOpenXRUpdateHands(RLHand* left, RLHand* right)
 {
-	assert(handedness > 0 && handedness < RL_OPENXR_HAND_COUNT);
-	return nullptr;
+	assert(s_xr && "rlOpenXR is not initialised yet, call rlOpenXRSetup()");
+
+	assert(right->handedness == RLOPENXR_HAND_RIGHT);
+
+	const XrTime time = rlOpenXRGetTime();
+
+	std::array hands{ left, right };
+
+	for (int hand_index = 0; hand_index < RLOPENXR_HAND_COUNT; ++hand_index)
+	{
+		auto& hand = hands[hand_index];
+		
+		if (hand == nullptr)
+		{
+			continue;
+		}
+
+		assert(hand->handedness == (RLOpenXRHandEnum)hand_index && 
+			"handedness is not initialised, or the left/right parameter to rlOpenXRUpdateHands are swapped");
+
+		hand->valid = false;
+
+		XrActionStateGetInfo get_info = { .type = XR_TYPE_ACTION_STATE_GET_INFO,
+											.next = NULL,
+											.action = hand->hand_pose_action,
+											.subactionPath = hand->hand_pose_subpath };
+
+		XrActionStatePose hand_pose_state{ XR_TYPE_ACTION_STATE_POSE };
+		XrResult result = xrGetActionStatePose(s_xr->data.session, &get_info, &hand_pose_state);
+		if (!xr_check(result, "failed to get hand %d action state pose!", hand_index))
+		{
+			continue;
+		}
+
+		hand->valid = hand_pose_state.isActive;
+
+		if (hand_pose_state.isActive)
+		{
+			XrSpaceLocation hand_location{ XR_TYPE_SPACE_LOCATION };
+			result = xrLocateSpace(hand->hand_pose_space, s_xr->data.play_space, time, &hand_location);
+			if (!xr_check(result, "Could not retrieve hand %d location", hand_index))
+			{
+				continue;
+			}
+
+			auto& pose = hand_location.pose;
+
+			if (hand_location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)
+			{
+				hand->position = Vector3{ pose.position.x, pose.position.y, pose.position.z };
+			}
+			if (hand_location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)
+			{
+				hand->orientation = Quaternion{ pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w };
+			}
+		}
+	}
+}
+
+void rlOpenXRSyncSingleActionSet(XrActionSet action_set)
+{
+	const XrActiveActionSet active_actionsets[1] = { { action_set, XR_NULL_PATH} };
+
+	XrActionsSyncInfo actions_sync_info = {
+			 XR_TYPE_ACTIONS_SYNC_INFO, NULL,
+			 sizeof(active_actionsets) / sizeof(active_actionsets[0]),
+			active_actionsets
+	};
+	XrResult result = xrSyncActions(s_xr->data.session, &actions_sync_info);
+	xr_check(result, "failed to sync actions!");
+}
+
+const RLOpenXRData* rlOpenXRData()
+{
+	assert(s_xr && "rlOpenXR is not initialised yet, call rlOpenXRSetup()");
+	return &s_xr->data;
+}
+
+XrTime rlOpenXRGetTime()
+{
+	const XrTime current_time = wrapped_XrTimeFromQueryPerformanceCounter(s_xr->data.instance, 
+		s_xr->extensions.xrConvertWin32PerformanceCounterToTimeKHR);
+	const XrTime predicted_time = s_xr->frame_state.predictedDisplayTime;
+	
+	return std::max(current_time, predicted_time);
 }
 
 #ifdef __cplusplus
