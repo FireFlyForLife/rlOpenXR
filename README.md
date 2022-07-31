@@ -11,16 +11,32 @@ So I recommend latest from the `Master` branch.
 
 # Features
 ## Completed
- - [x] Windows
+ - [x] Rlgl rendering backend
+ - [x] Builtin Head pose state
+ - [x] Hand interface abstraction
 
 ## Planned
  - [ ] Controller state rendering
+ - [ ] More convenient Input API
+ - [ ] Virtual hand system and rendering
+
+# Platforms
+## Supported
+ - [x] Windows
+
+## Planned
  - [ ] Linux
  - [ ] Android (Targeting standalone HMDs like Quest 2)
  - [ ] WebXR
-
-## No plans
+ 
+ ## No plans
  - [ ] Varjo 4 screen HMDs
-
+ 
 # CMake options
-RlOpenXR uses CMake as it's build system. 
+RlOpenXR uses CMake (minimum 3.14) as it's build system. 
+
+| Option | Description | Default |
+| ---    | ---         | ---     |
+| `RLOPENXR_BUILD_EXAMPLES` | Build RLOpenXR Examples | On |
+
+The Raylib & OpenXR dependencies are currently always fetched using [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html). In the near future this will be replaced by the CMake's flexible [dependency system released in 3.24](https://cmake.org/cmake/help/latest/guide/using-dependencies/index.html#fetchcontent-and-find-package-integration).
