@@ -1,4 +1,4 @@
-﻿cmake_minimum_required (VERSION 3.14)
+﻿cmake_minimum_required (VERSION 3.15)
 include(FetchContent)
 
 project (rlOpenXR)
@@ -13,34 +13,37 @@ FetchContent_Declare(
 	raylib
 	GIT_REPOSITORY https://github.com/raysan5/raylib.git
 	GIT_TAG "4.2.0"
-	# FIND_PACKAGE_ARGS # When CMake 3.24 is widely available, we can use this and remove our own "TryResolveWithFindPackage"
+	# FIND_PACKAGE_ARGS # When CMake 3.24 is widely available, we can use this and remove our own "MakeAvailable_WithFindPackageCheck"
 )
 
 FetchContent_Declare(
 	openxr
 	GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
 	GIT_TAG "release-1.0.25"
-	# FIND_PACKAGE_ARGS # When CMake 3.24 is widely available, we can use this and remove our own "TryResolveWithFindPackage"
+	# FIND_PACKAGE_ARGS # When CMake 3.24 is widely available, we can use this and remove our own "MakeAvailable_WithFindPackageCheck"
 )
 
+function(MakeAvailable_WithFindPackageCheck PACKAGE TARGET_NAME) # Temp function, until CMake 3.24 is more widely available
+	message(TRACE "[rlOpenXR] Resolving package '${PACKAGE}' with required target: '${TARGET_NAME}'")
 
-function(TryResolveWithFindPackage THIRD_PARTY_PACKAGE_LIST) # Temp function, should be moved to utility
-	foreach(THIRD_PARTY_PACKAGE ${${THIRD_PARTY_PACKAGE_LIST}})
-		find_package(${THIRD_PARTY_PACKAGE} QUIET)
-		if(${${THIRD_PARTY_PACKAGE}_FOUND})
-			message(TRACE "Found package ${THIRD_PARTY_PACKAGE} with find_package! It won't be fetched anymore with FetchContent.")
-			list(REMOVE_ITEM ${THIRD_PARTY_PACKAGE_LIST} ${THIRD_PARTY_PACKAGE})
-		endif()
-	endforeach()
+	if(TARGET ${TARGET_NAME})
+		message(TRACE "[rlOpenXR] Succesfully found target: '${TARGET_NAME}'. Not trying to use find_package or FetchContent for '${PACKAGE}'.")
+		return()
+	endif()
 
-	# Propogate the list modifications to the callee
-	set(${THIRD_PARTY_PACKAGE_LIST} ${${THIRD_PARTY_PACKAGE_LIST}} PARENT_SCOPE)
+	find_package(${PACKAGE} QUIET CONFIG)
+	
+	if(${${PACKAGE}_FOUND})
+		message(TRACE "[rlOpenXR] Found package ${PACKAGE} with find_package! It won't be fetched with FetchContent.")
+	endif()
+
+	message(TRACE "[rlOpenXR] Package '${PACKAGE}' will be downloaded with FetchContent_MakeAvailable.")
+	FetchContent_MakeAvailable(${PACKAGE})
 endfunction()
 
-set(THIRD_PARTY_DEPENDENCIES raylib openxr)
-TryResolveWithFindPackage(THIRD_PARTY_DEPENDENCIES)
-message(STATUS "Fetching third party dependencies '${THIRD_PARTY_DEPENDENCIES}' with FetchContent_MakeAvailable. This might take a few minutes...")
-FetchContent_MakeAvailable(${THIRD_PARTY_DEPENDENCIES})
+message(STATUS "[rlOpenXR] Fetching third party dependencies with FetchContent_MakeAvailable. This might take a few minutes...")
+MakeAvailable_WithFindPackageCheck(raylib raylib)
+MakeAvailable_WithFindPackageCheck(openxr openxr_loader)
 
 
 # Executable
