@@ -35,6 +35,7 @@ function(MakeAvailable_WithFindPackageCheck PACKAGE TARGET_NAME) # Temp function
 	
 	if(${${PACKAGE}_FOUND})
 		message(TRACE "[rlOpenXR] Found package ${PACKAGE} with find_package! It won't be fetched with FetchContent.")
+		return()
 	endif()
 
 	message(TRACE "[rlOpenXR] Package '${PACKAGE}' will be downloaded with FetchContent_MakeAvailable.")
