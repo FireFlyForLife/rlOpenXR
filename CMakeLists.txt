@@ -57,12 +57,12 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX)
 
 # Examples
 if(${RLOPENXR_BUILD_EXAMPLES})
-	add_executable(rlOpenXR_hello_cube "examples/hello_cube.cpp")
-	target_link_libraries(rlOpenXR_hello_cube PUBLIC ${PROJECT_NAME})
+	add_executable(rlOpenXR_hello_vr "examples/1_hello_vr.cpp")
+	target_link_libraries(rlOpenXR_hello_vr PUBLIC ${PROJECT_NAME})
 
-	add_executable(rlOpenXR_hello_hands "examples/hello_hands.cpp")
+	add_executable(rlOpenXR_hello_hands "examples/2_hello_hands.cpp")
 	target_link_libraries(rlOpenXR_hello_hands PUBLIC ${PROJECT_NAME})
 
-	add_executable(rlOpenXR_hello_clicky_hands "examples/hello_clicky_hands.cpp")
+	add_executable(rlOpenXR_hello_clicky_hands "examples/3_hello_clicky_hands.cpp")
 	target_link_libraries(rlOpenXR_hello_clicky_hands PUBLIC ${PROJECT_NAME})
 endif()
