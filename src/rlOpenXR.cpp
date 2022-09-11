@@ -876,6 +876,32 @@ void rlOpenXRUpdateCamera(Camera3D* camera)
 	}
 }
 
+void rlOpenXRUpdateCameraTransform(Transform* transform)
+{
+	assert(s_xr && "rlOpenXR is not initialised yet, call rlOpenXRSetup()");
+	assert(transform != nullptr);
+
+	const XrTime time = rlOpenXRGetTime();
+
+	XrSpaceLocation view_location{ XR_TYPE_SPACE_LOCATION };
+	XrResult result = xrLocateSpace(s_xr->data.view_space, s_xr->data.play_space, time, &view_location);
+	if (!xr_check(result, "Could not locate view location"))
+	{
+		return;
+	}
+
+	if (view_location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)
+	{
+		const auto& pos = view_location.pose.position;
+		transform->translation = Vector3{ pos.x, pos.y, pos.z };
+	}
+	if (view_location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)
+	{
+		const auto& rot = view_location.pose.orientation;
+		transform->rotation = Quaternion{ rot.x, rot.y, rot.z, rot.w };
+	}
+}
+
 // ----------------------------------------------------------------------------
 
 bool rlOpenXRBegin()

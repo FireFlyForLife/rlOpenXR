@@ -15,6 +15,7 @@ void rlOpenXRShutdown();
 // Update
 void rlOpenXRUpdate();
 void rlOpenXRUpdateCamera(Camera3D* camera);
+void rlOpenXRUpdateCameraTransform(Transform* transform);
 
 // Drawing
 bool rlOpenXRBegin();
