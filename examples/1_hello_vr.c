@@ -3,7 +3,7 @@
 #include "raylib.h"
 #include "raymath.h"
 
-#include <cstdio>
+#include <stdio.h>
 
 int main()
 {
@@ -16,9 +16,9 @@ int main()
     
     // Define the camera to look into our 3d world
     Camera camera = { 0 };
-    camera.position = { 10.0f, 10.0f, 10.0f }; // Camera position
-    camera.target = { 0.0f, 3.0f, 0.0f };      // Camera looking at point
-    camera.up = { 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
+    camera.position = (Vector3){10.0f, 10.0f, 10.0f}; // Camera position
+    camera.target = (Vector3){0.0f, 3.0f, 0.0f};      // Camera looking at point
+    camera.up = (Vector3){0.0f, 1.0f, 0.0f};          // Camera up vector (rotation towards target)
     camera.fovy = 45.0f;                       // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;    // Camera mode type
 
@@ -60,7 +60,7 @@ int main()
             BeginMode3D(camera);
 
                 // Draw Scene
-                DrawCube({ -3, 0, 0 }, 2.0f, 2.0f, 2.0f, RED);
+                DrawCube((Vector3) { -3, 0, 0 }, 2.0f, 2.0f, 2.0f, RED);
                 DrawGrid(10, 1.0f);
 
             EndMode3D();

@@ -7,13 +7,13 @@
 #include <stdio.h>
 #include <string.h>
 
-struct XRInputBindings
+typedef struct
 {
-	XrActionSet actionset = XR_NULL_HANDLE;
-	XrAction hand_pose_action = XR_NULL_HANDLE;
-	XrPath hand_paths[2] = {0, 0};
-	XrSpace hand_spaces[2] = {XR_NULL_HANDLE, XR_NULL_HANDLE};
-};
+	XrActionSet actionset;
+	XrAction hand_pose_action;
+	XrPath hand_paths[2];
+	XrSpace hand_spaces[2];
+} XRInputBindings;
 
 void setup_input_bindings(XRInputBindings* bindings);
 void assign_hand_input_bindings(XRInputBindings* bindings, RLHand* left, RLHand* right);
@@ -34,18 +34,18 @@ int main()
 	}
 
     Camera camera = { 0 };
-    camera.position = { 10.0f, 10.0f, 10.0f }; 
-    camera.target = { 0.0f, 3.0f, 0.0f };      
-    camera.up = { 0.0f, 1.0f, 0.0f };          
-    camera.fovy = 45.0f;                       
-    camera.projection = CAMERA_PERSPECTIVE;    
+    camera.position = (Vector3){ 10.0f, 10.0f, 10.0f };
+    camera.target = (Vector3){ 0.0f, 3.0f, 0.0f };
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+    camera.fovy = 45.0f;
+    camera.projection = CAMERA_PERSPECTIVE;
 
-	XRInputBindings bindings = {};
+	XRInputBindings bindings = { 0 };
 	setup_input_bindings(&bindings);
 
-    RLHand left_hand = { };
+    RLHand left_hand = { 0 };
 	left_hand.handedness = RLOPENXR_HAND_LEFT;
-	RLHand right_hand = { };
+	RLHand right_hand = { 0 };
     right_hand.handedness = RLOPENXR_HAND_RIGHT;
 	assign_hand_input_bindings(&bindings, &left_hand, &right_hand);
 
@@ -99,7 +99,7 @@ int main()
                 DrawModelEx(hand_model, right_hand.position, right_hand_axis, right_hand_angle * RAD2DEG, Vector3One(), PINK);
 
 				// Draw Scene
-				DrawCube({ -3, 0, 0 }, 2.0f, 2.0f, 2.0f, RED);
+				DrawCube((Vector3) { -3, 0, 0 }, 2.0f, 2.0f, 2.0f, RED);
                 DrawGrid(10, 1.0f);
 
             EndMode3D();
@@ -138,7 +138,7 @@ void setup_input_bindings(XRInputBindings* bindings)
 	result = xrStringToPath(xr->instance, "/user/hand/right", &bindings->hand_paths[RLOPENXR_HAND_RIGHT]);
 	assert(XR_SUCCEEDED(result) && "Could not convert Right hand string to path.");
 
-	XrActionSetCreateInfo actionset_info = {};
+	XrActionSetCreateInfo actionset_info = { 0 };
 	actionset_info.type = XR_TYPE_ACTION_SET_CREATE_INFO;
 	actionset_info.next = NULL;
 	strncpy(actionset_info.actionSetName, "rlopenxr_hello_hands_actionset", XR_MAX_ACTION_SET_NAME_SIZE);
@@ -149,7 +149,7 @@ void setup_input_bindings(XRInputBindings* bindings)
 	assert(XR_SUCCEEDED(result) && "Failed to create actionset.");
 
 	{
-		XrActionCreateInfo action_info = {};
+		XrActionCreateInfo action_info = { 0 };
 		action_info.type = XR_TYPE_ACTION_CREATE_INFO;
 		action_info.next = NULL;
 		strncpy(action_info.actionName, "handpose", XR_MAX_ACTION_NAME_SIZE);
@@ -166,7 +166,7 @@ void setup_input_bindings(XRInputBindings* bindings)
 	for (int hand = 0; hand < RLOPENXR_HAND_COUNT; hand++) {
 		XrPosef identity_pose = { { 0, 0, 0, 1}, {0, 0, 0} };
 
-		XrActionSpaceCreateInfo action_space_info = {};
+		XrActionSpaceCreateInfo action_space_info = { 0 };
 		action_space_info.type = XR_TYPE_ACTION_SPACE_CREATE_INFO;
 		action_space_info.next = NULL;
 		action_space_info.action = bindings->hand_pose_action;
@@ -177,7 +177,7 @@ void setup_input_bindings(XRInputBindings* bindings)
 		assert(XR_SUCCEEDED(result) && "failed to create hand %d pose space");
 	}
 
-	XrPath grip_pose_path[2] = {};
+	XrPath grip_pose_path[2] = { 0 };
 	xrStringToPath(xr->instance, "/user/hand/left/input/grip/pose", &grip_pose_path[RLOPENXR_HAND_LEFT]);
 	xrStringToPath(xr->instance, "/user/hand/right/input/grip/pose", &grip_pose_path[RLOPENXR_HAND_RIGHT]);
 
@@ -193,7 +193,7 @@ void setup_input_bindings(XRInputBindings* bindings)
 		};
 		const int action_suggested_bindings_count = sizeof(action_suggested_bindings) / sizeof(action_suggested_bindings[0]);
 
-		XrInteractionProfileSuggestedBinding suggested_bindings = { };
+		XrInteractionProfileSuggestedBinding suggested_bindings = { 0 };
 		suggested_bindings.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
 		suggested_bindings.next = NULL;
 		suggested_bindings.interactionProfile = interaction_profile_path;
@@ -216,7 +216,7 @@ void setup_input_bindings(XRInputBindings* bindings)
 		};
 		const int action_suggested_bindings_count = sizeof(action_suggested_bindings) / sizeof(action_suggested_bindings[0]);
 
-		XrInteractionProfileSuggestedBinding suggested_bindings = {};
+		XrInteractionProfileSuggestedBinding suggested_bindings = { 0 };
 		suggested_bindings.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
 		suggested_bindings.next = NULL;
 		suggested_bindings.interactionProfile = interaction_profile_path;
@@ -227,7 +227,7 @@ void setup_input_bindings(XRInputBindings* bindings)
 		assert(XR_SUCCEEDED(result) && "failed to suggest bindings for oculus/touch_controller");
 	}
 
-	XrSessionActionSetsAttachInfo actionset_attach_info = {};
+	XrSessionActionSetsAttachInfo actionset_attach_info = { 0 };
 	actionset_attach_info.type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO;
 	actionset_attach_info.next = NULL;
 	actionset_attach_info.countActionSets = 1;

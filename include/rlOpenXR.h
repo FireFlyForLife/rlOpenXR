@@ -22,33 +22,33 @@ bool rlOpenXRBegin();
 bool rlOpenXRBeginMockHMD();
 void rlOpenXREnd();
 
-enum RLOpenXREye { RLOPENXR_EYE_LEFT = 0, RLOPENXR_EYE_RIGHT = 1, RLOPENXR_EYE_BOTH = 2 };
+typedef enum { RLOPENXR_EYE_LEFT = 0, RLOPENXR_EYE_RIGHT = 1, RLOPENXR_EYE_BOTH = 2 } RLOpenXREye;
 void rlOpenXRBlitToWindow(RLOpenXREye eye, bool keep_aspect_ratio);
 
 // State
-struct RLOpenXRData
+typedef struct
 {
-	XrInstance instance = XR_NULL_HANDLE; // the instance handle can be thought of as the basic connection to the OpenXR runtime
-	XrSystemId system_id = XR_NULL_SYSTEM_ID; // the system represents an (opaque) set of XR devices in use, managed by the runtime
-	XrSession session = XR_NULL_HANDLE; // the session deals with the renderloop submitting frames to the runtime
+	XrInstance instance; // the instance handle can be thought of as the basic connection to the OpenXR runtime
+	XrSystemId system_id; // the system represents an (opaque) set of XR devices in use, managed by the runtime
+	XrSession session; // the session deals with the renderloop submitting frames to the runtime
 
-	XrSessionState session_state = XR_SESSION_STATE_UNKNOWN;
+	XrSessionState session_state;
 
-	XrSpace play_space = XR_NULL_HANDLE;
-	XrSpace view_space = XR_NULL_HANDLE;
+	XrSpace play_space;
+	XrSpace view_space;
 
 	// Constants
-	const XrViewConfigurationType view_type = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
-	const XrFormFactor form_factor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
-	const XrReferenceSpaceType play_space_type = XR_REFERENCE_SPACE_TYPE_STAGE;
-};
+	XrViewConfigurationType view_type /*= XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO*/;
+	XrFormFactor form_factor /*= XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY*/;
+	XrReferenceSpaceType play_space_type /*= XR_REFERENCE_SPACE_TYPE_STAGE*/;
+} RLOpenXRData;
 
 const RLOpenXRData* rlOpenXRData();
 
 // Hands
-enum RLOpenXRHandEnum { RLOPENXR_HAND_LEFT, RLOPENXR_HAND_RIGHT, RLOPENXR_HAND_COUNT };
+typedef enum { RLOPENXR_HAND_LEFT, RLOPENXR_HAND_RIGHT, RLOPENXR_HAND_COUNT } RLOpenXRHandEnum;
 
-struct RLHand
+typedef struct
 {
 	// OpenXR Ouput Data
 	bool valid;
@@ -61,7 +61,7 @@ struct RLHand
 	XrAction hand_pose_action;
 	XrPath hand_pose_subpath;
 	XrSpace hand_pose_space;
-};
+} RLHand;
 
 void rlOpenXRUpdateHands(RLHand* left, RLHand* right);
 void rlOpenXRSyncSingleActionSet(XrActionSet action_set); // Utility function for xrSyncAction with a single action set.

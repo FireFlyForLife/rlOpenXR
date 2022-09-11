@@ -104,7 +104,11 @@ struct RLOpenXRDataExtensions
 struct RLOpenXRAllData
 {
 	// Data
-	RLOpenXRData data;
+	RLOpenXRData data { 
+		.view_type = c_view_type, 
+		.form_factor = c_form_factor, 
+		.play_space_type = c_play_space_type 
+	};
 
 	RLOpenXRDataExtensions extensions;
 
