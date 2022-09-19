@@ -2,30 +2,16 @@
 #include "raylib.h"
 #include "openxr/openxr.h"
 
-// TODO: DLL import/export stuff
+// TODO: DLL export stuff
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-// Setup
-bool rlOpenXRSetup();
-void rlOpenXRShutdown();
-
-// Update
-void rlOpenXRUpdate();
-void rlOpenXRUpdateCamera(Camera3D* camera);
-void rlOpenXRUpdateCameraTransform(Transform* transform);
-
-// Drawing
-bool rlOpenXRBegin();
-bool rlOpenXRBeginMockHMD();
-void rlOpenXREnd();
+//----------------------------------------------------------------------------------
+// Type Definitions
+//----------------------------------------------------------------------------------
 
 typedef enum { RLOPENXR_EYE_LEFT = 0, RLOPENXR_EYE_RIGHT = 1, RLOPENXR_EYE_BOTH = 2 } RLOpenXREye;
-void rlOpenXRBlitToWindow(RLOpenXREye eye, bool keep_aspect_ratio);
 
-// State
+typedef enum { RLOPENXR_HAND_LEFT, RLOPENXR_HAND_RIGHT, RLOPENXR_HAND_COUNT } RLOpenXRHandEnum;
+
 typedef struct
 {
 	XrInstance instance; // the instance handle can be thought of as the basic connection to the OpenXR runtime
@@ -43,11 +29,6 @@ typedef struct
 	XrReferenceSpaceType play_space_type /*= XR_REFERENCE_SPACE_TYPE_STAGE*/;
 } RLOpenXRData;
 
-const RLOpenXRData* rlOpenXRData();
-
-// Hands
-typedef enum { RLOPENXR_HAND_LEFT, RLOPENXR_HAND_RIGHT, RLOPENXR_HAND_COUNT } RLOpenXRHandEnum;
-
 typedef struct
 {
 	// OpenXR Ouput Data
@@ -63,11 +44,42 @@ typedef struct
 	XrSpace hand_pose_space;
 } RLHand;
 
+
+//----------------------------------------------------------------------------------
+// Function Definitions
+//----------------------------------------------------------------------------------
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Setup
+bool rlOpenXRSetup();
+void rlOpenXRShutdown();
+
+// Update
+void rlOpenXRUpdate();
+
+void rlOpenXRUpdateCamera(Camera3D* camera);
+void rlOpenXRUpdateCameraTransform(Transform* transform);
+
+// Drawing
+bool rlOpenXRBegin();
+bool rlOpenXRBeginMockHMD();
+void rlOpenXREnd();
+
+void rlOpenXRBlitToWindow(RLOpenXREye eye, bool keep_aspect_ratio);
+
+// State
+const RLOpenXRData* rlOpenXRData();
+
+// Input / Hands
 void rlOpenXRUpdateHands(RLHand* left, RLHand* right);
+
 void rlOpenXRSyncSingleActionSet(XrActionSet action_set); // Utility function for xrSyncAction with a single action set.
 
 // Misc
-XrTime rlOpenXRGetTime(); // Get the current time from OpenXR
+XrTime rlOpenXRGetTime();
 
 #ifdef __cplusplus
 }

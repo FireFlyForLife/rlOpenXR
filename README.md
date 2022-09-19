@@ -6,8 +6,7 @@ To stay close to the design of Raylib. A concise yet powerful subset of OpenXR i
 Most of the API is there to wrap the interaction with Raylib (Mostly rendering). And covering very common usage, eg Head/Hands position.
 
 # Minimum Raylib version
-We rely on a bug fix for Raylib stereo rendering: [74ca813] (https://github.com/raysan5/raylib/commit/74ca81338e45937c1f36efecdae4c7b4c293431c), Released after 4.0.
-So I recommend latest from the `Master` branch.
+Raylib 4.2
 
 # Features
 ## Completed
@@ -33,10 +32,32 @@ So I recommend latest from the `Master` branch.
  - [ ] Varjo 4 screen HMDs
  
 # CMake options
-RlOpenXR uses CMake (minimum 3.14) as it's build system. 
+RlOpenXR uses CMake (minimum 3.15) as it's build system. 
 
 | Option | Description | Default |
 | ---    | ---         | ---     |
 | `RLOPENXR_BUILD_EXAMPLES` | Build RLOpenXR Examples | On |
 
-The Raylib & OpenXR dependencies are currently always fetched using [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html). In the near future this will be replaced by the CMake's flexible [dependency system released in 3.24](https://cmake.org/cmake/help/latest/guide/using-dependencies/index.html#fetchcontent-and-find-package-integration).
+## Using the rlOpenXR as a dependency
+Out of the box rlOpenXR only supports CMake. There are a few options on how to add a library as a dependency in CMake:
+
+### Subdirectory
+Download the source for rlOpenXR into a subfolder in your project, for example: "third_party/rlOpenXR".
+This can be done via git: `git clone https://github.com/FireFlyForLife/rlOpenXR.git`.
+Or by manually going to [the github repo](https://github.com/FireFlyForLife/rlOpenXR) and going to "Code" -> "Download Zip".
+
+Then in your CMake project, add the following line:
+`add_subdirectory(third_party/rlOpenXR)`
+
+### FetchContent
+```cmake
+FetchContent_Declare(
+	rlOpenXR
+	GIT_REPOSITORY https://github.com/FireFlyForLife/rlOpenXR.git
+	GIT_TAG "1.0"
+)
+
+FetchContent_MakeAvailable(rlOpenXR)
+```
+In the `FetchContent_MakeAvailable()` call, CMake will download the repository via Git, and add it parse it's CMake file.
+

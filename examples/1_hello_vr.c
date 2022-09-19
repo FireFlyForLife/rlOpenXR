@@ -12,7 +12,7 @@ int main()
     const int screenWidth = 1200;
     const int screenHeight = 900;
 
-    InitWindow(screenWidth, screenHeight, "rlOpenXR - Hello Cube");
+    InitWindow(screenWidth, screenHeight, "rlOpenXR - Hello Vr");
     
     // Define the camera to look into our 3d world
     Camera camera = { 0 };
@@ -67,6 +67,7 @@ int main()
 
             const bool keep_aspect_ratio = true;
             rlOpenXRBlitToWindow(RLOPENXR_EYE_BOTH, keep_aspect_ratio); // Copy OpenXR backbuffer to window backbuffer
+                                                                        // Useful for viewing the image on a flatscreen
         }
         rlOpenXREnd();
 

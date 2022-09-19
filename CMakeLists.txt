@@ -48,7 +48,7 @@ MakeAvailable_WithFindPackageCheck(openxr openxr_loader)
 
 
 # Executable
-add_library (${PROJECT_NAME} "include/rlOpenXR.h" "src/rlOpenXR.cpp" "include/platform/rlOpenXRWin32Wrapper.h" "src/platform/rlOpenXRWin32Wrapper.cpp")
+add_library (${PROJECT_NAME} "include/rlOpenXR.h" "src/rlOpenXR.cpp" "include/platform/rlOpenXRWin32Wrapper.h" "src/platform/rlOpenXRWin32Wrapper.cpp" )
 target_link_libraries(${PROJECT_NAME} PUBLIC raylib openxr_loader)
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20) # TODO: Aim for 17 in the future
@@ -65,4 +65,7 @@ if(${RLOPENXR_BUILD_EXAMPLES})
 
 	add_executable(rlOpenXR_hello_clicky_hands "examples/3_hello_clicky_hands.c")
 	target_link_libraries(rlOpenXR_hello_clicky_hands PUBLIC ${PROJECT_NAME})
+
+	add_executable(rlOpenXR_hello_teleport "examples/4_hello_teleport.c")
+	target_link_libraries(rlOpenXR_hello_teleport PUBLIC ${PROJECT_NAME})
 endif()

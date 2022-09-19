@@ -10,6 +10,7 @@
 typedef struct
 {
 	XrActionSet actionset;
+
 	XrAction hand_pose_action;
 	XrPath hand_paths[2];
 	XrSpace hand_spaces[2];
@@ -25,7 +26,7 @@ int main()
     const int screenWidth = 1200;
     const int screenHeight = 900;
 
-    InitWindow(screenWidth, screenHeight, "rlOpenXR - Hello Cube");
+    InitWindow(screenWidth, screenHeight, "rlOpenXR - Hello Hands");
     
 	if (!rlOpenXRSetup())
 	{
@@ -106,7 +107,8 @@ int main()
 
             const bool keep_aspect_ratio = true;
             rlOpenXRBlitToWindow(RLOPENXR_EYE_BOTH, keep_aspect_ratio); // Copy OpenXR backbuffer to window backbuffer
-        }
+																		// Useful for viewing the image on a flatscreen
+		}
         rlOpenXREnd();
 
 
@@ -141,8 +143,10 @@ void setup_input_bindings(XRInputBindings* bindings)
 	XrActionSetCreateInfo actionset_info = { 0 };
 	actionset_info.type = XR_TYPE_ACTION_SET_CREATE_INFO;
 	actionset_info.next = NULL;
-	strncpy(actionset_info.actionSetName, "rlopenxr_hello_hands_actionset", XR_MAX_ACTION_SET_NAME_SIZE);
-	strncpy(actionset_info.localizedActionSetName, "OpenXR Hello Hands ActionSet", XR_MAX_LOCALIZED_ACTION_SET_NAME_SIZE);
+	strncpy_s(actionset_info.actionSetName, XR_MAX_ACTION_SET_NAME_SIZE, 
+		"rlopenxr_hello_hands_actionset", XR_MAX_ACTION_SET_NAME_SIZE);
+	strncpy_s(actionset_info.localizedActionSetName, XR_MAX_LOCALIZED_ACTION_SET_NAME_SIZE, 
+		"OpenXR Hello Hands ActionSet", XR_MAX_LOCALIZED_ACTION_SET_NAME_SIZE);
 	actionset_info.priority = 0;
 
 	result = xrCreateActionSet(xr->instance, &actionset_info, &bindings->actionset);
@@ -152,11 +156,13 @@ void setup_input_bindings(XRInputBindings* bindings)
 		XrActionCreateInfo action_info = { 0 };
 		action_info.type = XR_TYPE_ACTION_CREATE_INFO;
 		action_info.next = NULL;
-		strncpy(action_info.actionName, "handpose", XR_MAX_ACTION_NAME_SIZE);
+		strncpy_s(action_info.actionName, XR_MAX_ACTION_NAME_SIZE, 
+			"handpose", XR_MAX_ACTION_NAME_SIZE);
 		action_info.actionType = XR_ACTION_TYPE_POSE_INPUT;
 		action_info.countSubactionPaths = RLOPENXR_HAND_COUNT;
 		action_info.subactionPaths = bindings->hand_paths;
-		strncpy(action_info.localizedActionName, "Hand Pose", XR_MAX_LOCALIZED_ACTION_NAME_SIZE);
+		strncpy_s(action_info.localizedActionName, XR_MAX_LOCALIZED_ACTION_NAME_SIZE, 
+			"Hand Pose", XR_MAX_LOCALIZED_ACTION_NAME_SIZE);
 
 		result = xrCreateAction(bindings->actionset, &action_info, &bindings->hand_pose_action);
 		assert(XR_SUCCEEDED(result) && "Failed to create hand pose action");

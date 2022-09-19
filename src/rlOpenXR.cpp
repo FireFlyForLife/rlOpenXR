@@ -202,7 +202,7 @@ static void print_instance_properties(XrInstance instance)
 
 static void print_system_properties(XrSystemProperties* system_properties)
 {
-	printf("System properties for system %lu: \"%s\", vendor ID %d\n", system_properties->systemId,
+	printf("System properties for system %llu: \"%s\", vendor ID %d\n", system_properties->systemId,
 		system_properties->systemName, system_properties->vendorId);
 	printf("\tMax layers          : %d\n", system_properties->graphicsProperties.maxLayerCount);
 	printf("\tMax swapchain height: %d\n",
@@ -234,6 +234,9 @@ static Matrix xr_projection_matrix(const XrFovf& fov)
 
 	Matrix matrix{};
 
+	const float near = (float)RL_CULL_DISTANCE_NEAR;
+	const float far = (float)RL_CULL_DISTANCE_FAR;
+
 	const float tanAngleLeft = tanf(fov.angleLeft);
 	const float tanAngleRight = tanf(fov.angleRight);
 
@@ -255,8 +258,8 @@ static Matrix xr_projection_matrix(const XrFovf& fov)
 
 	matrix.m2 = 0;
 	matrix.m6 = 0;
-	matrix.m10 = -(RL_CULL_DISTANCE_FAR + RL_CULL_DISTANCE_NEAR) / (RL_CULL_DISTANCE_FAR - RL_CULL_DISTANCE_NEAR);
-	matrix.m14 = -(RL_CULL_DISTANCE_FAR * (RL_CULL_DISTANCE_NEAR + RL_CULL_DISTANCE_NEAR)) / (RL_CULL_DISTANCE_FAR - RL_CULL_DISTANCE_NEAR);
+	matrix.m10 = -(far + near) / (far - near);
+	matrix.m14 = -(far * (near + near)) / (far - near);
 
 	matrix.m3 = 0;
 	matrix.m7 = 0;
@@ -680,8 +683,8 @@ bool rlOpenXRSetup()
 			s_xr->depth_infos[view].next = NULL;
 			s_xr->depth_infos[view].minDepth = 0.f;
 			s_xr->depth_infos[view].maxDepth = 1.f;
-			s_xr->depth_infos[view].nearZ = RL_CULL_DISTANCE_NEAR;
-			s_xr->depth_infos[view].farZ = RL_CULL_DISTANCE_FAR;
+			s_xr->depth_infos[view].nearZ = (float)RL_CULL_DISTANCE_NEAR;
+			s_xr->depth_infos[view].farZ = (float)RL_CULL_DISTANCE_FAR;
 
 			s_xr->depth_infos[view].subImage.swapchain = s_xr->depth_swapchain;
 			s_xr->depth_infos[view].subImage.imageArrayIndex = 0;
@@ -742,7 +745,7 @@ void rlOpenXRUpdate()
 		switch (runtime_event.type) {
 		case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING: {
 			XrEventDataInstanceLossPending* event = (XrEventDataInstanceLossPending*)&runtime_event;
-			printf("EVENT: instance loss pending at %lu! Destroying instance.\n", event->lossTime);
+			printf("EVENT: instance loss pending at %llu! Destroying instance.\n", event->lossTime);
 			continue;
 		}
 		case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
@@ -1148,11 +1151,11 @@ void rlOpenXRBlitToWindow(RLOpenXREye eye, bool keep_aspect_ratio)
 
 		if (src_aspect > dest_aspect)
 		{
-			dest.extent.height = dest.extent.width / src_aspect;
+			dest.extent.height = (int32_t)(dest.extent.width / src_aspect);
 		}
 		else
 		{
-			dest.extent.width = dest.extent.height * src_aspect;
+			dest.extent.width = (int32_t)(dest.extent.height * src_aspect);
 		}
 	}
 
@@ -1189,6 +1192,12 @@ void rlOpenXRUpdateHands(RLHand* left, RLHand* right)
 
 		assert(hand->handedness == (RLOpenXRHandEnum)hand_index && 
 			"handedness is not initialised, or the left/right parameter to rlOpenXRUpdateHands are swapped");
+
+		if (QuaternionEquals(hand->orientation, Quaternion{ 0, 0, 0, 0 }))
+		{
+			// Fixup invalid identity values
+			hand->orientation = QuaternionIdentity(); 
+		}
 
 		hand->valid = false;
 
