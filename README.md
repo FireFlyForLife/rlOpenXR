@@ -68,7 +68,7 @@ In your CMakeLists.txt file, add the following lines:
 FetchContent_Declare(
 	rlOpenXR
 	GIT_REPOSITORY https://github.com/FireFlyForLife/rlOpenXR.git
-	GIT_TAG "v1.0.0"
+	GIT_TAG "v1.1.0"
 )
 
 FetchContent_MakeAvailable(rlOpenXR)
