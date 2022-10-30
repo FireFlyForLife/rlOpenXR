@@ -70,7 +70,7 @@ int main()
 
 	SetCameraMode(local_camera, CAMERA_FREE);
 
-	SetTargetFPS(-1);	// OpenXR is responsible for waiting in rlOpenXRBegin()
+	SetTargetFPS(-1);	// OpenXR is responsible for waiting in rlOpenXRUpdate()
 						// Having raylib also do it's VSync causes noticeable input lag
 
 	//--------------------------------------------------------------------------------------
@@ -82,6 +82,7 @@ int main()
 		//----------------------------------------------------------------------------------
 
 		rlOpenXRUpdate(); // Update OpenXR State
+						  // Should be called at the start of each frame before other rlOpenXR calls.
 
 		rlOpenXRSyncSingleActionSet(bindings.actionset); // Simple utility function for simple apps with 1 action set.
 														 // xrSyncAction will activate action sets for use.

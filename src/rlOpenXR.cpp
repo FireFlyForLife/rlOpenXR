@@ -739,6 +739,7 @@ void rlOpenXRUpdate()
 
 	XrResult result;
 
+	// Poll OpenXR Events
 	XrEventDataBuffer runtime_event = { .type = XR_TYPE_EVENT_DATA_BUFFER, .next = NULL };
 	XrResult poll_result = xrPollEvent(s_xr->data.instance, &runtime_event);
 	while (poll_result == XR_SUCCESS) {
@@ -852,6 +853,17 @@ void rlOpenXRUpdate()
 		// TODO: Actually print the poll_result as a string...
 		printf("Failed to poll events!\n");
 	}
+
+	// Wait for OpenXR frame
+	if (s_xr->session_running)
+	{
+		XrFrameWaitInfo frame_wait_info = { .type = XR_TYPE_FRAME_WAIT_INFO, .next = NULL };
+		result = xrWaitFrame(s_xr->data.session, &frame_wait_info, &s_xr->frame_state);
+		if (!xr_check(result, "xrWaitFrame() was not successful, skipping this frame"))
+		{
+			return;
+		}
+	}
 }
 
 void rlOpenXRUpdateCamera(Camera3D* camera)
@@ -920,13 +932,6 @@ bool rlOpenXRBegin()
 		return false;
 	}
 
-	XrFrameWaitInfo frame_wait_info = { .type = XR_TYPE_FRAME_WAIT_INFO, .next = NULL };
-	XrResult result = xrWaitFrame(s_xr->data.session, &frame_wait_info, &s_xr->frame_state);
-	if (!xr_check(result, "xrWaitFrame() was not successful, skipping this frame"))
-	{
-		return false;
-	}
-
 	XrViewLocateInfo view_locate_info{ .type = XR_TYPE_VIEW_LOCATE_INFO,
 										 .next = NULL,
 										 .viewConfigurationType = c_view_type,
@@ -936,7 +941,7 @@ bool rlOpenXRBegin()
 	XrViewState view_state{ XR_TYPE_VIEW_STATE };
 
 	uint32_t output_view_count;
-	result = xrLocateViews(s_xr->data.session, &view_locate_info, &view_state, c_view_count, &output_view_count, s_xr->views.data());
+	XrResult result = xrLocateViews(s_xr->data.session, &view_locate_info, &view_state, c_view_count, &output_view_count, s_xr->views.data());
 	if (!xr_check(result, "Could not locate views"))
 		return false;
 

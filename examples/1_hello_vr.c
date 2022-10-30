@@ -24,7 +24,7 @@ int main()
 
     SetCameraMode(camera, CAMERA_FREE);
 
-    SetTargetFPS(-1); // OpenXR is responsible for waiting in rlOpenXRBegin()
+    SetTargetFPS(-1); // OpenXR is responsible for waiting in rlOpenXRUpdate()
                       // Having raylib also do it's VSync causes noticeable input lag
 
     const bool initialised_rlopenxr = rlOpenXRSetup();
@@ -41,7 +41,8 @@ int main()
         // Update
         //----------------------------------------------------------------------------------
 
-        rlOpenXRUpdate(); // Update OpenXR State
+        rlOpenXRUpdate(); // Update OpenXR State.
+                          // Should be called at the start of each frame before other rlOpenXR calls.
 
         UpdateCamera(&camera); // Use mouse control as a debug option when no HMD is available
         rlOpenXRUpdateCamera(&camera); // If the HMD is available, set the camera position to the HMD position
