@@ -48,11 +48,11 @@ MakeAvailable_WithFindPackageCheck(openxr openxr_loader)
 
 
 # Executable
-add_library (${PROJECT_NAME} "include/rlOpenXR.h" "src/rlOpenXR.cpp" "include/platform/rlOpenXRWin32Wrapper.h" "src/platform/rlOpenXRWin32Wrapper.cpp" )
-target_link_libraries(${PROJECT_NAME} PUBLIC raylib openxr_loader)
-target_include_directories(${PROJECT_NAME} PUBLIC include)
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20) # TODO: Aim for 17 in the future
-target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX)
+add_library (rlOpenXR "include/rlOpenXR.h" "src/rlOpenXR.cpp" "include/platform/rlOpenXRWin32Wrapper.h" "src/platform/rlOpenXRWin32Wrapper.cpp" )
+target_link_libraries(rlOpenXR PUBLIC raylib openxr_loader)
+target_include_directories(rlOpenXR PUBLIC include)
+target_compile_features(rlOpenXR PRIVATE cxx_std_20) # TODO: Aim for 17 in the future
+target_compile_definitions(rlOpenXR PRIVATE NOMINMAX)
 
 
 # Examples
